@@ -22,6 +22,7 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 #include <linux/regulator/consumer.h>
+#include <linux/iopoll.h>
 
 #include <asm/mach-types.h>
 #include <asm/cpu.h>
@@ -89,20 +90,10 @@ static void __cpuinit set_sec_clk_src(struct scalable *sc, u32 sec_src_sel)
 {
 	u32 regval;
 
-	/* 8064 Errata: disable sec_src clock gating during switch. */
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
-	regval |= SECCLKAGD;
-	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
-
-	/* Program the MUX */
 	regval &= ~(0x3 << 2);
 	regval |= ((sec_src_sel & 0x3) << 2);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
-
-	/* 8064 Errata: re-enabled sec_src clock gating. */
-	regval &= ~SECCLKAGD;
-	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
-
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
@@ -157,8 +148,14 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 	writel_relaxed(0x6, sc->hfpll_base + drv.hfpll_data->mode_offset);
 
 	/* Wait for PLL to lock. */
-	mb();
-	udelay(60);
+	if (drv.hfpll_data->has_lock_status) {
+		u32 regval;
+		readl_tight_poll(sc->hfpll_base + drv.hfpll_data->status_offset,
+			   regval, regval & BIT(16));
+	} else {
+		mb();
+		udelay(60);
+	}
 
 	/* Enable PLL output. */
 	writel_relaxed(0x7, sc->hfpll_base + drv.hfpll_data->mode_offset);
@@ -985,11 +982,12 @@ static struct cpufreq_frequency_table freq_table[NR_CPUS][FREQ_TABLE_SIZE];
 static void __init cpufreq_table_init(void)
 {
 	int cpu;
+	int freq_cnt = 0;
 
 	for_each_possible_cpu(cpu) {
-		int i, freq_cnt = 0;
+		int i;
 		/* Construct the freq_table tables from acpu_freq_tbl. */
-		for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0
+		for (i = 0, freq_cnt = 0; drv.acpu_freq_tbl[i].speed.khz != 0
 				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
 			if (drv.acpu_freq_tbl[i].use_for_scaling) {
 				freq_table[cpu][freq_cnt].index = freq_cnt;
@@ -1004,12 +1002,11 @@ static void __init cpufreq_table_init(void)
 		freq_table[cpu][freq_cnt].index = freq_cnt;
 		freq_table[cpu][freq_cnt].frequency = CPUFREQ_TABLE_END;
 
-		dev_info(drv.dev, "CPU%d: %d frequencies supported\n",
-			cpu, freq_cnt);
-
 		/* Register table with CPUFreq. */
 		cpufreq_frequency_table_get_attr(freq_table[cpu], cpu);
 	}
+
+	dev_info(drv.dev, "CPU Frequencies Supported: %d\n", freq_cnt);
 }
 #else
 static void __init cpufreq_table_init(void) {}
@@ -1040,7 +1037,11 @@ static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 		/* Fall through. */
 	case CPU_UP_CANCELED:
 		acpuclk_krait_set_rate(cpu, hot_unplug_khz, SETRATE_HOTPLUG);
+
+		regulator_disable(sc->vreg[VREG_CORE].reg);
 		regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg, 0);
+		regulator_set_voltage(sc->vreg[VREG_CORE].reg, 0,
+						sc->vreg[VREG_CORE].max_vdd);
 		break;
 	case CPU_UP_PREPARE:
 		if (!sc->initialized) {
@@ -1051,10 +1052,20 @@ static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 		}
 		if (WARN_ON(!prev_khz[cpu]))
 			return NOTIFY_BAD;
+
+		rc = regulator_set_voltage(sc->vreg[VREG_CORE].reg,
+					sc->vreg[VREG_CORE].cur_vdd,
+					sc->vreg[VREG_CORE].max_vdd);
+		if (rc < 0)
+			return NOTIFY_BAD;
 		rc = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
 						sc->vreg[VREG_CORE].cur_ua);
 		if (rc < 0)
 			return NOTIFY_BAD;
+		rc = regulator_enable(sc->vreg[VREG_CORE].reg);
+		if (rc < 0)
+			return NOTIFY_BAD;
+
 		acpuclk_krait_set_rate(cpu, prev_khz[cpu], SETRATE_HOTPLUG);
 		break;
 	default:
@@ -1068,7 +1079,7 @@ static struct notifier_block __cpuinitdata acpuclk_cpu_notifier = {
 	.notifier_call = acpuclk_cpu_callback,
 };
 
-static const int krait_needs_vmin(void)
+static const int __init krait_needs_vmin(void)
 {
 	switch (read_cpuid_id()) {
 	case 0x511F04D0: /* KR28M2A20 */
@@ -1080,7 +1091,7 @@ static const int krait_needs_vmin(void)
 	};
 }
 
-static void krait_apply_vmin(struct acpu_level *tbl)
+static void __init krait_apply_vmin(struct acpu_level *tbl)
 {
 	for (; tbl->speed.khz != 0; tbl++) {
 		if (tbl->vdd_core < 1150000)
