@@ -63,16 +63,7 @@
 static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
 
-static struct drv_data {
-	struct acpu_level *acpu_freq_tbl;
-	const struct l2_level *l2_freq_tbl;
-	struct scalable *scalable;
-	struct hfpll_data *hfpll_data;
-	u32 bus_perf_client;
-	struct msm_bus_scale_pdata *bus_scale;
-	int boost_uv;
-	struct device *dev;
-} drv;
+static struct drv_data drv;
 
 static unsigned long acpuclk_krait_get_rate(int cpu)
 {
