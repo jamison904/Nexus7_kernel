@@ -45,10 +45,22 @@
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 
+#ifdef CONFIG_OC_ULTIMATE
+#ifdef CONFIG_LOW_CPUCLOCKS
+#define FREQ_TABLE_SIZE		41
+#else
+#define FREQ_TABLE_SIZE		37
+#endif
+#else
+#ifdef CONFIG_LOW_CPUCLOCKS
+#define FREQ_TABLE_SIZE		39
+#else
+#define FREQ_TABLE_SIZE		35
+#endif
+#endif
+
 static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
-
-#define FREQ_TABLE_SIZE    35
 
 static struct drv_data drv;
 
@@ -78,7 +90,7 @@ static void __cpuinit set_sec_clk_src(struct scalable *sc, u32 sec_src_sel)
 
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~(0x3 << 2);
-	regval |= ((sec_src_sel & 0x3) << 2);
+	regval |= ((sec_src_sel & 0x3));
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
