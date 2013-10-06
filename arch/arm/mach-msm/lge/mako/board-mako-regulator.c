@@ -31,7 +31,6 @@ VREG_CONSUMERS(L2) = {
 	REGULATOR_SUPPLY("dsi_vdda",		"mipi_dsi.1"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.0"),
 	REGULATOR_SUPPLY("mipi_csi_vdd",	"msm_csid.1"), 
-	REGULATOR_SUPPLY("dsi_pll_vdda",        "mdp.0"),
 };
 VREG_CONSUMERS(L3) = {
 	REGULATOR_SUPPLY("8921_l3",		NULL),
@@ -247,7 +246,6 @@ VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("pll_vdd",		"pil_riva"),
 	REGULATOR_SUPPLY("lvds_vdda",		"lvds.0"),
 	REGULATOR_SUPPLY("dsi1_vddio",		"mipi_dsi.1"),
-	REGULATOR_SUPPLY("dsi_pll_vddio",       "mdp.0"),
 	REGULATOR_SUPPLY("hdmi_vdda",		"hdmi_msm.0"),
 };
 VREG_CONSUMERS(NCP) = {
@@ -380,8 +378,7 @@ VREG_CONSUMERS(EXT_DSV_LOAD) = {
 	{ \
 		.constraints = { \
 			.name		= _name, \
-			.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE | \
-							  REGULATOR_CHANGE_STATUS, \
+			.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE, \
 			.min_uV		= _min_uV, \
 			.max_uV		= _max_uV, \
 		}, \
@@ -497,26 +494,26 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 struct regulator_init_data msm8064_saw_regulator_pdata_8921_s5 =
 	/*	      ID  vreg_name	       min_uV   max_uV */
 #ifdef CONFIG_CPU_OVERCLOCK
-	SAW_VREG_INIT(S5, "8921_s5",	       700000, 1450000);
+	SAW_VREG_INIT(S5, "8921_s5",	       600000, 1450000);
 #else
 	SAW_VREG_INIT(S5, "8921_s5",	       850000, 1300000);
 #endif
 struct regulator_init_data msm8064_saw_regulator_pdata_8921_s6 =
 #ifdef CONFIG_CPU_OVERCLOCK
-	SAW_VREG_INIT(S6, "8921_s6",	       700000, 1450000);
+	SAW_VREG_INIT(S6, "8921_s6",	       600000, 1450000);
 #else
 	SAW_VREG_INIT(S6, "8921_s6",	       850000, 1300000);
 #endif
 struct regulator_init_data msm8064_saw_regulator_pdata_8821_s0 =
 	/*	      ID       vreg_name	min_uV  max_uV */
 #ifdef CONFIG_CPU_OVERCLOCK
-	SAW_VREG_INIT(8821_S0, "8821_s0",       700000, 1450000);
+	SAW_VREG_INIT(8821_S0, "8821_s0",       600000, 1450000);
 #else
 	SAW_VREG_INIT(8821_S0, "8821_s0",       850000, 1300000);
 #endif
 struct regulator_init_data msm8064_saw_regulator_pdata_8821_s1 =
 #ifdef CONFIG_CPU_OVERCLOCK
-	SAW_VREG_INIT(8821_S1, "8821_s1",       700000, 1450000);
+	SAW_VREG_INIT(8821_S1, "8821_s1",       600000, 1450000);
 #else
 	SAW_VREG_INIT(8821_S1, "8821_s1",       850000, 1300000);
 #endif
@@ -537,7 +534,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
 	RPM_SMPS(S1, 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
 	RPM_SMPS(S2, 0, 1, 0, 1300000, 1300000, NULL,      0, 1p60, NONE, NONE),
-	RPM_SMPS(S3, 0, 1, 1,  500000, 1250000, NULL, 100000, 4p80, NONE, NONE),
+	RPM_SMPS(S3, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
 	RPM_SMPS(S4, 1, 1, 0, 1800000, 1800000, NULL, 100000, 1p60, AUTO, AUTO),
 	RPM_SMPS(S7, 0, 0, 0, 1300000, 1300000, NULL, 100000, 3p20, NONE, NONE),
 #if defined(CONFIG_IMX091)
@@ -571,7 +568,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 #endif
 	RPM_LDO(L22, 0, 1, 0, 1800000, 1800000, NULL,          0,     0),
 	RPM_LDO(L23, 0, 1, 0, 1800000, 1800000, NULL,          0,     0),
-	RPM_LDO(L24, 0, 1, 1,  750000, 1250000, "8921_s1", 10000, 10000),
+	RPM_LDO(L24, 0, 1, 1,  750000, 1150000, "8921_s1", 10000, 10000),
 	RPM_LDO(L25, 1, 1, 0, 1250000, 1250000, "8921_s1", 10000, 10000),
 	RPM_LDO(L27, 0, 0, 0, 1100000, 1100000, "8921_s7",     0,     0),
 	RPM_LDO(L28, 0, 1, 0, 1050000, 1050000, "8921_s7",     0,     0),
